@@ -13,38 +13,12 @@ usage() {
     echo "      --dry-run    Simulate actions without making changes"
 }
 
-# Find valid docker compose file
-compose_files=(docker-compose.yml docker-compose.yaml compose.yml compose.yaml)
-compose_file=""
-
-for file in "${compose_files[@]}"; do
-    if [[ -f "$file" ]]; then
-        compose_file="$file"
-        break
-    fi
-done
-
-if [[ -z "$compose_file" ]]; then
-    echo "❌ Error: No Docker Compose file found in the current directory."
-    echo "Expected one of: ${compose_files[*]}"
-    exit 1
-fi
-
-echo "📄 Using Docker Compose file: $compose_file"
-
-# Validate the file
-if ! docker compose -f "$compose_file" config > /dev/null 2>&1; then
-    echo "❌ Error: Docker Compose file '$compose_file' is invalid."
-    docker compose -f "$compose_file" config
-    exit 1
-fi
-
 # Default flags
 FORCE=""
 BUILD=""
 DRY_RUN=false
 
-# Parse arguments
+# Parse arguments before anything else
 while [[ "$#" -gt 0 ]]; do
     case "$1" in
         -h|--help)
@@ -74,12 +48,38 @@ while [[ "$#" -gt 0 ]]; do
     esac
 done
 
+# Find valid docker compose file
+compose_files=(docker-compose.yml docker-compose.yaml compose.yml compose.yaml)
+compose_file=""
+
+for file in "${compose_files[@]}"; do
+    if [[ -f "$file" ]]; then
+        compose_file="$file"
+        break
+    fi
+done
+
+if [[ -z "$compose_file" ]]; then
+    echo "❌ Error: No Docker Compose file found in the current directory."
+    echo "Expected one of: ${compose_files[*]}"
+    exit 1
+fi
+
+echo "📄 Using Docker Compose file: $compose_file"
+
+# Validate the file
+if ! docker compose -f "$compose_file" config > /dev/null 2>&1; then
+    echo "❌ Error: Docker Compose file '$compose_file' is invalid."
+    docker compose -f "$compose_file" config
+    exit 1
+fi
+
 # Capture image IDs before pull
 before_images=$(docker compose images --quiet | sort)
 
 if $DRY_RUN; then
     echo "🚫 Dry run mode enabled. The following would be performed:"
-    echo "1. Validate Compose file ✅"
+    echo "1. Validate Docker Compose file ✅"
     echo "2. Check for updated images"
     echo "3. Pull images: docker compose pull"
     echo "4. Compare image digests"

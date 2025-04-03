@@ -2,7 +2,9 @@
 
 set -euo pipefail
 
-# Usage function
+# =========================
+# 🧾 Usage Information
+# =========================
 usage() {
     echo "Usage: $(basename "$0") [options]"
     echo ""
@@ -13,12 +15,13 @@ usage() {
     echo "      --dry-run    Simulate actions without making changes"
 }
 
-# Default flags
+# =========================
+# 🧩 Parse Arguments First
+# =========================
 FORCE=""
 BUILD=""
 DRY_RUN=false
 
-# Parse arguments before anything else
 while [[ "$#" -gt 0 ]]; do
     case "$1" in
         -h|--help)
@@ -48,7 +51,9 @@ while [[ "$#" -gt 0 ]]; do
     esac
 done
 
-# Find valid docker compose file
+# =========================
+# 📄 Find Compose File
+# =========================
 compose_files=(docker-compose.yml docker-compose.yaml compose.yml compose.yaml)
 compose_file=""
 
@@ -67,45 +72,80 @@ fi
 
 echo "📄 Using Docker Compose file: $compose_file"
 
-# Validate the file
+# =========================
+# ✅ Validate Compose File
+# =========================
 if ! docker compose -f "$compose_file" config > /dev/null 2>&1; then
     echo "❌ Error: Docker Compose file '$compose_file' is invalid."
     docker compose -f "$compose_file" config
     exit 1
 fi
 
-# Capture image IDs before pull
-before_images=$(docker compose images --quiet | sort)
+# =========================
+# 🔍 Capture Image Digests
+# =========================
+get_image_digest() {
+    docker image inspect --format='{{index .RepoDigests 0}}' "$1" 2>/dev/null || echo ""
+}
 
+image_names=$(docker compose config | grep 'image:' | awk '{print $2}' | sort -u)
+
+declare -A digests_before
+for image in $image_names; do
+    digests_before["$image"]=$(get_image_digest "$image")
+done
+
+# =========================
+# 🚫 Dry Run
+# =========================
 if $DRY_RUN; then
     echo "🚫 Dry run mode enabled. The following would be performed:"
     echo "1. Validate Docker Compose file ✅"
-    echo "2. Check for updated images"
-    echo "3. Pull images: docker compose pull"
-    echo "4. Compare image digests"
-    echo "5. Run: docker compose up -d $FORCE $BUILD (if anything changed)"
-    echo "6. Prune: docker image prune -f (if containers recreated)"
+    echo "2. Pull updated images"
+    echo "3. Check for changes in image digests:"
+    for image in "${!digests_before[@]}"; do
+        echo "   - $image (before digest: ${digests_before[$image]})"
+    done
+    echo "4. Run: docker compose up -d $FORCE $BUILD (if any digest changed)"
+    echo "5. Prune: docker image prune -f (if containers recreated)"
     exit 0
 fi
 
+# =========================
+# 📦 Pull Images
+# =========================
 echo "📦 Pulling updated images..."
 docker compose pull
 
-# Capture image IDs after pull
-after_images=$(docker compose images --quiet | sort)
+# =========================
+# 🔄 Compare Digests
+# =========================
+updated=false
+for image in $image_names; do
+    digest_before="${digests_before[$image]}"
+    digest_after=$(get_image_digest "$image")
+    if [[ "$digest_before" != "$digest_after" ]]; then
+        echo "🔄 Image updated: $image"
+        updated=true
+    fi
+done
 
-if [[ "$before_images" == "$after_images" ]]; then
+if [[ "$updated" == false ]]; then
     echo "✅ No image changes detected. Skipping container restart and image prune."
     exit 0
 fi
 
+# =========================
+# 🚀 Run docker compose up
+# =========================
 echo "🚀 Images updated. Running containers with: docker compose up -d $FORCE $BUILD"
 before_containers=$(docker compose ps -q)
-
 docker compose up -d $FORCE $BUILD
-
 after_containers=$(docker compose ps -q)
 
+# =========================
+# 🧹 Image Prune (if needed)
+# =========================
 if [[ "$before_containers" != "$after_containers" ]]; then
     echo "🧹 Containers were recreated. Pruning dangling images..."
     docker image prune -f

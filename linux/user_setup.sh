@@ -1,4 +1,10 @@
-#!/bin/sh
+#!/usr/bin/env bash
+
+#
+# Run this script on a newly installed linux instance, like so:
+#
+# bash -c "$(curl -fsSL https://github.com/kluzzebass/bins/raw/refs/heads/main/linux/user_setup.sh)"
+#
 
 echo "🚀 Starting user setup script..."
 

@@ -1,17 +1,10 @@
 #!/bin/sh
 
-echo "🚀 Starting Ansible-compatible user setup..."
+echo "🚀 Starting user setup script..."
 
 # Prompt for username
 printf "👤 Enter new username: "
 read USERNAME
-
-# Prompt for password (securely)
-printf "🔒 Enter password for %s: " "$USERNAME"
-stty -echo
-read PASSWORD
-stty echo
-printf "\n"
 
 # Detect distro
 if [ -f /etc/debian_version ]; then
@@ -45,10 +38,17 @@ ensure_package() {
     fi
 }
 
-# Create user if not exists
+# Check if user exists
 if id "$USERNAME" >/dev/null 2>&1; then
-    echo "✅ User '$USERNAME' already exists, skipping creation"
+    echo "✅ User '$USERNAME' already exists, skipping creation and password prompt"
 else
+    # Prompt for password (securely)
+    printf "🔒 Enter password for %s: " "$USERNAME"
+    stty -echo
+    read PASSWORD
+    stty echo
+    printf "\n"
+
     echo "👷 Creating user '$USERNAME'..."
     if [ "$DISTRO" = "debian" ]; then
         apt update -y
@@ -83,7 +83,7 @@ if [ "$DISTRO" = "debian" ]; then
     fi
 
 elif [ "$DISTRO" = "alpine" ]; then
-    if grep -q "^wheel:.*:$USERNAME" /etc/group || id -nG "$USERNAME" | grep -qw wheel; then
+    if id -nG "$USERNAME" | grep -qw wheel; then
         echo "✅ User '$USERNAME' already in 'wheel' group"
     else
         echo "➕ Adding user '$USERNAME' to 'wheel' group..."
@@ -98,4 +98,4 @@ elif [ "$DISTRO" = "alpine" ]; then
     fi
 fi
 
-echo "🎉 Setup complete. User '$USERNAME' is ready for Ansible usage with passwordless sudo."
+echo "🎉 Done. User '$USERNAME' is ready with passwordless sudo access."

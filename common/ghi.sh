@@ -3,6 +3,8 @@
 # Function to display help
 show_help() {
   cat << EOF
+This script creates a remote GitHub repo from the current directory.
+
 Usage: $(basename "$0") [OPTIONS]
 
 Options:

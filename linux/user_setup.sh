@@ -1,11 +1,13 @@
 #!/bin/sh
 
+echo "🚀 Starting Ansible-compatible user setup..."
+
 # Prompt for username
-printf "Enter new username: "
+printf "👤 Enter new username: "
 read USERNAME
 
 # Prompt for password (securely)
-printf "Enter password for %s: " "$USERNAME"
+printf "🔒 Enter password for %s: " "$USERNAME"
 stty -echo
 read PASSWORD
 stty echo
@@ -14,10 +16,12 @@ printf "\n"
 # Detect distro
 if [ -f /etc/debian_version ]; then
     DISTRO=debian
+    echo "📦 Detected Debian-based distribution"
 elif [ -f /etc/alpine-release ]; then
     DISTRO=alpine
+    echo "📦 Detected Alpine Linux"
 else
-    echo "Unsupported distribution"
+    echo "❌ Unsupported distribution"
     exit 1
 fi
 
@@ -25,16 +29,27 @@ fi
 ensure_package() {
     PKG="$1"
     if [ "$DISTRO" = "debian" ]; then
-        dpkg -s "$PKG" >/dev/null 2>&1 || apt install -y "$PKG"
+        if dpkg -s "$PKG" >/dev/null 2>&1; then
+            echo "✅ Package '$PKG' already installed"
+        else
+            echo "📥 Installing package '$PKG'..."
+            apt install -y "$PKG"
+        fi
     elif [ "$DISTRO" = "alpine" ]; then
-        apk info -e "$PKG" >/dev/null 2>&1 || apk add "$PKG"
+        if apk info -e "$PKG" >/dev/null 2>&1; then
+            echo "✅ Package '$PKG' already installed"
+        else
+            echo "📥 Installing package '$PKG'..."
+            apk add "$PKG"
+        fi
     fi
 }
 
 # Create user if not exists
 if id "$USERNAME" >/dev/null 2>&1; then
-    echo "User $USERNAME already exists."
+    echo "✅ User '$USERNAME' already exists, skipping creation"
 else
+    echo "👷 Creating user '$USERNAME'..."
     if [ "$DISTRO" = "debian" ]; then
         apt update -y
         ensure_package sudo
@@ -46,41 +61,41 @@ else
         adduser -D -s /bin/ash "$USERNAME"
     fi
     echo "$USERNAME:$PASSWORD" | chpasswd
-    echo "User $USERNAME created."
+    echo "🔐 Password set for user '$USERNAME'"
 fi
 
 # Add to sudo/wheel group
 if [ "$DISTRO" = "debian" ]; then
-    if groups "$USERNAME" | grep -qw sudo; then
-        echo "User $USERNAME already in sudo group."
+    if id -nG "$USERNAME" | grep -qw sudo; then
+        echo "✅ User '$USERNAME' already in 'sudo' group"
     else
+        echo "➕ Adding user '$USERNAME' to 'sudo' group..."
         usermod -aG sudo "$USERNAME"
-        echo "User $USERNAME added to sudo group."
     fi
 
     SUDO_FILE="/etc/sudoers.d/$USERNAME"
     if [ -f "$SUDO_FILE" ]; then
-        echo "Passwordless sudo already configured for $USERNAME."
+        echo "✅ Passwordless sudo already configured for '$USERNAME'"
     else
+        echo "📝 Setting up passwordless sudo for '$USERNAME'..."
         echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > "$SUDO_FILE"
         chmod 0440 "$SUDO_FILE"
-        echo "Passwordless sudo configured for $USERNAME."
     fi
 
 elif [ "$DISTRO" = "alpine" ]; then
-    if grep -q "^$USERNAME:" /etc/group | grep -q wheel; then
-        echo "User $USERNAME already in wheel group."
+    if grep -q "^wheel:.*:$USERNAME" /etc/group || id -nG "$USERNAME" | grep -qw wheel; then
+        echo "✅ User '$USERNAME' already in 'wheel' group"
     else
+        echo "➕ Adding user '$USERNAME' to 'wheel' group..."
         adduser "$USERNAME" wheel
-        echo "User $USERNAME added to wheel group."
     fi
 
     if grep -q "^%wheel ALL=(ALL) NOPASSWD: ALL" /etc/sudoers; then
-        echo "Passwordless sudo already configured for wheel group."
+        echo "✅ Passwordless sudo already configured for 'wheel' group"
     else
+        echo "📝 Adding passwordless sudo rule for 'wheel' group..."
         echo "%wheel ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-        echo "Passwordless sudo configured for wheel group."
     fi
 fi
 
-echo "✅ Done. $USERNAME is ready for Ansible usage."
+echo "🎉 Setup complete. User '$USERNAME' is ready for Ansible usage with passwordless sudo."

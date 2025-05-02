@@ -1,10 +1,4 @@
-#!/usr/bin/env bash
-
-#
-# Run this script on a newly installed linux instance, like so:
-#
-# bash -c "$(curl -fsSL https://github.com/kluzzebass/bins/raw/refs/heads/main/linux/user_setup.sh)"
-#
+#!/bin/sh
 
 echo "🚀 Starting user setup script..."
 
@@ -44,7 +38,7 @@ ensure_package() {
     fi
 }
 
-# Check if user exists
+# If user doesn't exist, ask for password and create
 if id "$USERNAME" >/dev/null 2>&1; then
     echo "✅ User '$USERNAME' already exists, skipping creation and password prompt"
 else
@@ -104,4 +98,21 @@ elif [ "$DISTRO" = "alpine" ]; then
     fi
 fi
 
-echo "🎉 Done. User '$USERNAME' is ready with passwordless sudo access."
+# Ensure SSH server is installed and started
+if [ "$DISTRO" = "debian" ]; then
+    ensure_package openssh-server
+    if command -v systemctl >/dev/null 2>&1; then
+        echo "🔌 Enabling and starting SSH service (systemd)..."
+        systemctl enable ssh
+        systemctl restart ssh
+    else
+        echo "⚠️ systemd not available — ensure SSH is running manually"
+    fi
+elif [ "$DISTRO" = "alpine" ]; then
+    ensure_package openssh
+    echo "🔌 Enabling and starting sshd (OpenRC)..."
+    rc-update add sshd
+    service sshd restart
+fi
+
+echo "🎉 Done. User '$USERNAME' is ready with passwordless sudo and SSH access."

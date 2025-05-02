@@ -6,6 +6,8 @@ set -euo pipefail
 # 🧾 Usage Information
 # =========================
 usage() {
+    echo "This script upgrades and recreates docker compose containers."
+    echo ""
     echo "Usage: $(basename "$0") [options]"
     echo ""
     echo "Options:"

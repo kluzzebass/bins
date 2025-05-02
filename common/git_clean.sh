@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# This script cleans up a local git repo.
+
 # Check if the current directory is a git repository
 if [ ! -d ".git" ]; then
     echo "This is not a git repository."

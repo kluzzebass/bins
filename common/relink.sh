@@ -39,6 +39,23 @@ esac
 OS_DIR="$BASE_DIR/$OS_DIR_NAME"
 COMMON_DIR="$BASE_DIR/common"
 
+# Compute relative path from directory $1 to file $2
+relpath() {
+    local from="$1" to="$2"
+    local common="$from" result=""
+
+    while [ "${to#"$common"/}" = "$to" ] && [ "$common" != "/" ]; do
+        common=$(dirname "$common")
+        result="../$result"
+    done
+
+    if [ "$common" = "/" ]; then
+        echo "${result}${to#/}"
+    else
+        echo "${result}${to#"$common"/}"
+    fi
+}
+
 # Function to execute or show commands based on flags and return command status
 run_command() {
     local cmd="$*"
@@ -70,8 +87,7 @@ link_files() {
             continue
         fi
 
-        relative_path=$(realpath --relative-to="$TARGET_DIR" "$file")
-        run_command ln -sf "$relative_path" "$target"
+        run_command ln -sf "$(relpath "$TARGET_DIR" "$file")" "$target"
     done
 }
 

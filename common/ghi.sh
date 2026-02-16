@@ -133,17 +133,25 @@ run_command() {
 # Initialize Git repository with specified branch name
 run_command "git init -b $BRANCH_NAME" || { echo "Failed to initialize repository"; exit 1; }
 
-# Create README.md
-run_command "echo '# $REPO_NAME' > README.md" || { echo "Failed to create README.md"; exit 1; }
+# Create README.md only when absent
+if [ -f "README.md" ]; then
+  echo "README.md already exists; preserving existing file."
+else
+  run_command "echo '# $REPO_NAME' > README.md" || { echo "Failed to create README.md"; exit 1; }
+fi
 
 # Fetch specified .gitignore template if provided
 if [ -n "$GITIGNORE" ]; then
   run_command "gh api 'gitignore/templates/$GITIGNORE' --jq '.source' > .gitignore" || { echo "Failed to fetch .gitignore template"; exit 1; }
 fi
 
-# Fetch specified LICENSE template if provided
+# Fetch specified LICENSE template if provided (without overwriting existing LICENSE)
 if [ -n "$LICENSE" ]; then
-  run_command "gh api 'licenses/$LICENSE' --jq '.body' > LICENSE" || { echo "Failed to fetch LICENSE template"; exit 1; }
+  if [ -f "LICENSE" ]; then
+    echo "LICENSE already exists; preserving existing file."
+  else
+    run_command "gh api 'licenses/$LICENSE' --jq '.body' > LICENSE" || { echo "Failed to fetch LICENSE template"; exit 1; }
+  fi
 fi
 
 # Stage files
